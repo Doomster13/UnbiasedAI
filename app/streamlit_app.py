@@ -2,505 +2,336 @@ import streamlit as st
 import pandas as pd
 import sys
 import os
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import numpy as np
-from datetime import datetime
-import json
+import traceback
 
-# Configure page
 st.set_page_config(
-    page_title="Unbiased AI Debugger - Enterprise Edition",
-    page_icon="🔍",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_title="Unbiased AI Debugger",
+    page_icon="🧠",
+    layout="wide"
 )
 
-# Custom CSS for professional styling
 st.markdown("""
 <style>
-    .main-header {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #1f2937;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-    .severity-high {
-        background-color: #fee2e2;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        border-left: 4px solid #dc2626;
-    }
-    .severity-medium {
-        background-color: #fef3c7;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        border-left: 4px solid #f59e0b;
-    }
-    .severity-low {
-        background-color: #dcfce7;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        border-left: 4px solid #16a34a;
-    }
-    .metric-card {
-        background-color: #f8fafc;
-        padding: 1.5rem;
-        border-radius: 0.5rem;
-        border: 1px solid #e2e8f0;
-        margin: 0.5rem 0;
-    }
-    .insight-box {
-        background-color: #eff6ff;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        border-left: 4px solid #3b82f6;
-        margin: 1rem 0;
-    }
+html, body, [data-testid="stAppViewContainer"] {
+    background: linear-gradient(180deg, #07122a 0%, #081c3b 45%, #0f2a5a 100%) !important;
+    color: #f4f7ff !important;
+    font-family: 'DM Sans', sans-serif !important;
+}
+
+.report-panel {
+    background: rgba(11, 29, 65, 0.96);
+    border: 1px solid rgba(94, 153, 255, 0.2);
+    border-radius: 24px;
+    padding: 28px 30px;
+    margin-bottom: 24px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+}
+
+.deep-box {
+    background: rgba(17, 36, 83, 0.88);
+    border: 1px solid rgba(104, 159, 255, 0.16);
+    border-radius: 20px;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.section-title {
+    color: #d8e4ff;
+    font-size: 1.35rem;
+    margin-bottom: 0.8rem;
+}
+
+.severity-box {
+    border-radius: 20px;
+    padding: 20px 22px;
+    margin-bottom: 22px;
+    background: linear-gradient(180deg, rgba(18, 55, 114, 0.95), rgba(8, 18, 49, 0.95));
+    border: 1px solid rgba(104, 161, 255, 0.24);
+}
+
+.severity-low { border-left: 6px solid #34d36b; }
+.severity-moderate { border-left: 6px solid #f5b43a; }
+.severity-high { border-left: 6px solid #f86b6b; }
+
+.metric-card {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-radius: 18px !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    padding: 18px !important;
+}
+
+.metric-card h4 { color: #edf2ff !important; margin: 0 0 0.6rem 0 !important; }
+.metric-card p { color: #b5c6ff !important; margin: 0 !important; }
+
+.stButton > button {
+    background: linear-gradient(135deg, #1f67f2 0%, #4f94ff 100%) !important;
+    color: white !important;
+    border-radius: 16px !important;
+    padding: 0.8rem 1.6rem !important;
+}
+
+.stFileUploader {
+    border-radius: 18px !important;
+}
+
+.stMarkdown div p { color: #e6ecff !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# Sidebar for navigation and configuration
-st.sidebar.markdown("## Configuration")
-
-# Session state for maintaining data across pages
-if 'analysis_complete' not in st.session_state:
-    st.session_state.analysis_complete = False
-if 'current_report' not in st.session_state:
-    st.session_state.current_report = None
-
-# Debug path check
-project_root = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..")
+st.markdown(
+    """
+    <div class="report-panel">
+        <h1 style="margin-bottom: 0.2rem;">Unbiased AI Debugger</h1>
+        <p style="margin-top: 0; color:#b8c9ff;">
+        Bias Detection & Mitigation Platform</p>
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-# Import check
 try:
     from src.engine.debugger import BiasDebugger
-    st.sidebar.success("All modules loaded")
+    st.sidebar.success("BiasDebugger loaded")
 except Exception as e:
-    st.sidebar.error(f"Import error: {str(e)}")
+    st.sidebar.error("Unable to load the debugging engine.")
+    st.sidebar.exception(e)
     st.stop()
 
-# Main header
-st.markdown('<h1 class="main-header">Unbiased AI Debugger</h1>', unsafe_allow_html=True)
-st.markdown('<p style="text-align: center; color: #6b7280; margin-bottom: 2rem;">Enterprise-grade bias detection and mitigation platform</p>', unsafe_allow_html=True)
+if "current_report" not in st.session_state:
+    st.session_state.current_report = None
 
-# File upload section
-col1, col2, col3 = st.columns([1, 2, 1])
-
-with col2:
-    st.markdown("### Dataset Upload")
-    uploaded_file = st.file_uploader(
-        "Upload your dataset for bias analysis",
-        type=["csv"],
-        help="Supported formats: CSV. The system will automatically detect target columns and protected attributes."
-    )
-
-if uploaded_file is not None:
-    # Progress tracking
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    
-    try:
-        # Step 1: Load and validate data
-        status_text.text("Loading and validating dataset...")
-        progress_bar.progress(10)
-        
-        temp_path = "temp_uploaded_dataset.csv"
-        df_uploaded = pd.read_csv(uploaded_file)
-        
-        # Basic data validation
-        if df_uploaded.empty:
-            st.error("The uploaded dataset is empty. Please check your file.")
-            st.stop()
-            
-        if len(df_uploaded.columns) < 2:
-            st.error("Dataset must have at least 2 columns (features + target).")
-            st.stop()
-        
-        df_uploaded.to_csv(temp_path, index=False)
-        
-        # Step 2: Show data preview
-        status_text.text("Analyzing dataset structure...")
-        progress_bar.progress(25)
-        
-        with st.expander("Dataset Preview", expanded=True):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.write(f"**Shape:** {df_uploaded.shape[0]} rows, {df_uploaded.shape[1]} columns")
-                st.write(f"**Memory usage:** {df_uploaded.memory_usage(deep=True).sum() / 1024**2:.1f} MB")
-            with col2:
-                st.write(f"**Missing values:** {df_uploaded.isnull().sum().sum()}")
-                st.write(f"**Duplicate rows:** {df_uploaded.duplicated().sum()}")
-            
-            st.dataframe(df_uploaded.head(), use_container_width=True)
-        
-        # Step 3: Run bias analysis
-        status_text.text("Running comprehensive bias analysis...")
-        progress_bar.progress(40)
-        
-        debugger = BiasDebugger(temp_path)
-        
-        status_text.text("Generating insights and recommendations...")
-        progress_bar.progress(60)
-        
-        report = debugger.run()
-        
-        status_text.text("Analysis complete!")
-        progress_bar.progress(100)
-        
-        # Store in session state
-        st.session_state.analysis_complete = True
-        st.session_state.current_report = report
-        
-        # Clear status
-        status_text.empty()
-        progress_bar.empty()
-        
-        # Display comprehensive report
-        display_industry_report(report)
-        
-    except Exception as e:
-        st.error(f"Analysis failed: {str(e)}")
-        st.exception(e)
-        
-elif st.session_state.analysis_complete and st.session_state.current_report:
-    # Display previous analysis if available
-    st.info("Showing previous analysis results. Upload a new dataset to run a fresh analysis.")
-    display_industry_report(st.session_state.current_report)
-
-else:
-    # Welcome screen
-    st.markdown("""
-    ## Welcome to Unbiased AI Debugger
-    
-    This enterprise-grade platform helps you:
-    
-    **Detect Bias** - Automatically identify various types of bias in your datasets
-    **Measure Impact** - Quantify bias severity with industry-standard metrics
-    **Get Explanations** - Understand why bias occurs and which groups are affected
-    **Mitigate Issues** - Receive actionable recommendations to reduce bias
-    **Monitor Progress** - Track improvements over time
-    
-    ### How it works:
-    1. **Upload** your CSV dataset
-    2. **Auto-detect** target columns and protected attributes
-    3. **Analyze** bias using multiple fairness metrics
-    4. **Receive** comprehensive report with explanations and mitigation strategies
-    
-    ---
-    
-    ### Supported Bias Types:
-    - **Representation Bias** - Uneven distribution of demographic groups
-    - **Demographic Bias** - Unfair outcome rates between groups  
-    - **Model Performance Bias** - Different accuracy across demographic groups
-    - **Intersectional Bias** - Combined effects of multiple protected attributes
-    
-    ### Fairness Metrics:
-    - Demographic Parity Difference
-    - Equalized Odds Difference
-    - Subgroup Performance Analysis
-    - Statistical Significance Testing
-    
-    **Ready to get started? Upload your dataset above!**
-    """)
 
 def display_industry_report(report):
-    """Display comprehensive industry-level bias analysis report"""
-    
-    # Executive Summary
-    st.markdown("---")
-    st.markdown("## Executive Summary")
-    
-    # Severity indicator with styling
-    severity = report["severity_analysis"]
+    if not report or not isinstance(report, dict):
+        st.warning("No report data is available to display.")
+        return
+
+    severity = report.get("severity_analysis", {})
+    metrics = report.get("fairness_metrics", {})
+    performance = report.get("overall_model_performance", {})
+    subgroup = report.get("subgroup_performance", {})
+    dataset_bias = report.get("dataset_bias", {})
+    mitigation_plan = report.get("mitigation_plan", {}).get("recommended_actions", [])
+    root_cause = report.get("root_cause_analysis", {})
+    top_features = root_cause.get("top_contributing_features", [])
+
+    st.markdown('<div class="deep-box">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Executive Summary</div>', unsafe_allow_html=True)
+    st.markdown(f"- **Target:** `{report.get('target', 'N/A')}`")
+    protected_attrs = report.get("protected_attributes", [])
+    st.markdown(f"- **Protected attributes:** `{', '.join(protected_attrs) if protected_attrs else 'N/A'}`")
+    st.markdown(f"- **Task type:** `{report.get('task_type', 'N/A')}`")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    severity_level = severity.get("severity_level", "Unknown")
+    severity_score = severity.get("severity_score", 0.0)
+    confidence = severity.get("confidence", 0.0)
     severity_class = {
         "Low": "severity-low",
-        "Moderate": "severity-medium", 
+        "Moderate": "severity-moderate",
         "High": "severity-high"
-    }
-    
-    st.markdown(f'<div class="{severity_class.get(severity["severity_level"], "")}">', unsafe_allow_html=True)
-    st.markdown(f"### Bias Severity: {severity['severity_level']}")
-    st.markdown(f"**Score:** {severity['severity_score']:.3f} | **Confidence:** {severity['confidence']*100:.0f}%")
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Bias Summary
-    if "bias_summary" in report:
-        st.markdown(report["bias_summary"])
-    
-    # Key Metrics Dashboard
-    st.markdown("---")
-    st.markdown("## Key Metrics Dashboard")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.metric("Overall Accuracy", f"{report['overall_model_performance']['accuracy']:.3f}")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        dp_diff = report['fairness_metrics'].get('demographic_parity_difference', 0)
-        st.metric("Demographic Parity Gap", f"{dp_diff:.3f}")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        eo_diff = report['fairness_metrics'].get('equalized_odds_difference', 0)
-        st.metric("Equalized Odds Gap", f"{eo_diff:.3f}")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col4:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        detected_count = len([b for b in report['detected_biases'] if b != "No Significant Bias Detected"])
-        st.metric("Bias Types Detected", detected_count)
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Bias Explanations
-    st.markdown("---")
-    st.markdown("## Bias Analysis & Explanations")
-    
-    if "bias_explanations" in report and report["bias_explanations"]:
-        for i, explanation in enumerate(report["bias_explanations"], 1):
-            with st.expander(f"Explanation {i}: {report['detected_biases'][i-1] if i-1 < len(report['detected_biases']) else 'Analysis'}", expanded=i==1):
-                st.markdown(explanation)
-    else:
-        st.info("No detailed explanations available.")
-    
-    # Mitigation Strategies
-    st.markdown("---")
-    st.markdown("## Mitigation Strategies")
-    
-    if "mitigation_suggestions" in report:
-        suggestions = report["mitigation_suggestions"]
-        
-        # Priority Actions
-        if suggestions.get("priority_actions"):
-            st.markdown("### Priority Actions")
-            for i, action in enumerate(suggestions["priority_actions"], 1):
-                st.markdown(f'<div class="insight-box">', unsafe_allow_html=True)
-                st.markdown(f"**{i}. {action['action']}** ({action['category']})")
-                st.write(action['description'])
-                st.write(f"*Impact Level:* {action['impact']}")
-                st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Detailed Recommendations
-        if suggestions.get("detailed_recommendations"):
-            st.markdown("### Detailed Recommendations")
-            for category, items in suggestions["detailed_recommendations"].items():
-                with st.expander(f"{category}", expanded=False):
-                    for i, item in enumerate(items, 1):
-                        st.markdown(f"**{i}. {item['action']}**")
-                        st.write(item['description'])
-                        if 'implementation' in item:
-                            st.code(item['implementation'], language="python")
-                        st.write(f"*Impact:* {item['impact']}")
-                        if i < len(items):
-                            st.markdown("---")
-        
-        # Implementation Timeline
-        if suggestions.get("implementation_timeline"):
-            st.markdown("### Implementation Timeline")
-            for i, step in enumerate(suggestions["implementation_timeline"], 1):
-                st.write(f"{i}. {step}")
-        
-        # Success Metrics
-        if suggestions.get("success_metrics"):
-            st.markdown("### Success Metrics")
-            for metric in suggestions["success_metrics"]:
-                st.write(f"• {metric}")
-    
-    # Visualizations
-    st.markdown("---")
-    st.markdown("## Visual Analytics")
-    
-    create_bias_visualizations(report)
-    
-    # Technical Details
-    st.markdown("---")
-    st.markdown("## Technical Analysis Details")
-    
-    with st.expander("Dataset Bias Analysis", expanded=False):
-        st.json(report["dataset_bias"])
-    
-    with st.expander("Fairness Metrics", expanded=False):
-        st.json(report["fairness_metrics"])
-    
-    with st.expander("Model Performance", expanded=False):
-        st.json(report["overall_model_performance"])
-    
-    with st.expander("Subgroup Performance", expanded=False):
-        st.json(report["subgroup_performance"])
-    
-    with st.expander("Detected Biases", expanded=False):
-        st.write(report["detected_biases"])
-    
-    # Export Options
-    st.markdown("---")
-    st.markdown("## Export & Sharing")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        if st.button("Download Report (JSON)", help="Download complete analysis report"):
-            st.download_button(
-                label="Click to Download",
-                data=json.dumps(report, indent=2),
-                file_name=f"bias_analysis_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                mime="application/json"
-            )
-    
-    with col2:
-        if st.button("Download Summary (CSV)", help="Download summary metrics"):
-            summary_data = {
-                "Metric": ["Severity Score", "Confidence", "Overall Accuracy", "Demographic Parity Gap", "Equalized Odds Gap", "Bias Types Detected"],
-                "Value": [
-                    severity["severity_score"],
-                    severity["confidence"],
-                    report["overall_model_performance"]["accuracy"],
-                    report["fairness_metrics"].get("demographic_parity_difference", 0),
-                    report["fairness_metrics"].get("equalized_odds_difference", 0),
-                    len([b for b in report['detected_biases'] if b != "No Significant Bias Detected"])
-                ]
-            }
-            summary_df = pd.DataFrame(summary_data)
-            st.download_button(
-                label="Click to Download",
-                data=summary_df.to_csv(index=False),
-                file_name=f"bias_analysis_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv"
-            )
-    
-    with col3:
-        if st.button("Clear Analysis", help="Clear current analysis and start fresh"):
-            st.session_state.analysis_complete = False
-            st.session_state.current_report = None
-            st.rerun()
+    }.get(severity_level, "")
 
-def create_bias_visualizations(report):
-    """Create interactive visualizations for bias analysis"""
+    st.markdown(f'<div class="severity-box {severity_class}">', unsafe_allow_html=True)
+    st.markdown(f"### Bias Severity: {severity_level}")
+    st.markdown(f"- **Score:** {severity_score:.3f}")
+    st.markdown(f"- **Confidence:** {confidence * 100:.0f}%")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="section-title">Model & Fairness Metrics</div>', unsafe_allow_html=True)
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+        st.markdown("<h4>Accuracy</h4>", unsafe_allow_html=True)
+        st.markdown(f"<p>{performance.get('accuracy', 'N/A')}</p>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col2:
+        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+        st.markdown("<h4>Demographic Parity Gap</h4>", unsafe_allow_html=True)
+        st.markdown(f"<p>{metrics.get('demographic_parity_difference', 'N/A')}</p>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col3:
+        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+        st.markdown("<h4>Equalized Odds Gap</h4>", unsafe_allow_html=True)
+        st.markdown(f"<p>{metrics.get('equalized_odds_difference', 'N/A')}</p>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    if subgroup:
+        st.markdown('<div class="section-title">Subgroup Performance</div>', unsafe_allow_html=True)
+        subgroup_df = pd.DataFrame(subgroup).T
+        subgroup_df.index.name = "Group"
+        st.dataframe(subgroup_df.style.format("{:.4f}"), use_container_width=True)
+
+    if dataset_bias:
+        st.markdown('<div class="section-title">Protected Group Distribution</div>', unsafe_allow_html=True)
+        for attr, details in dataset_bias.items():
+            st.markdown(f"**{attr}**")
+            distribution = details.get("distribution", {})
+            if distribution:
+                dist_df = pd.DataFrame(list(distribution.items()), columns=[attr, "Share"])
+                st.bar_chart(dist_df.set_index(attr))
+            else:
+                st.markdown("No distribution data available.")
+
+    if top_features:
+        st.markdown('<div class="section-title">Top Root Causes</div>', unsafe_allow_html=True)
+        features_df = pd.DataFrame(top_features)
+        if not features_df.empty:
+            st.dataframe(features_df, use_container_width=True)
+        else:
+            st.markdown("No root cause feature data available.")
+
+    if mitigation_plan:
+        st.markdown('<div class="section-title">Recommended Mitigation Actions</div>', unsafe_allow_html=True)
+        for action in mitigation_plan:
+            st.markdown(f"- {action}")
+
+    # Replace JSON with structured columnar report
+    st.markdown('<div class="section-title">Structured Report Data</div>', unsafe_allow_html=True)
     
-    # Subgroup Performance Chart
-    if "subgroup_performance" in report and report["subgroup_performance"]:
-        st.markdown("### Subgroup Performance Analysis")
+    # Create tabs for different report sections
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+        "Severity Analysis", "Fairness Metrics", "Model Performance", 
+        "Subgroup Performance", "Dataset Bias", "Root Cause Analysis", 
+        "Mitigation Plan", "Other Details"
+    ])
+    
+    with tab1:
+        if severity:
+            severity_df = pd.DataFrame(list(severity.items()), columns=["Metric", "Value"])
+            st.dataframe(severity_df, use_container_width=True)
+        else:
+            st.write("No severity analysis data available.")
+    
+    with tab2:
+        if metrics:
+            metrics_df = pd.DataFrame(list(metrics.items()), columns=["Metric", "Value"])
+            st.dataframe(metrics_df, use_container_width=True)
+        else:
+            st.write("No fairness metrics data available.")
+    
+    with tab3:
+        if performance:
+            performance_df = pd.DataFrame(list(performance.items()), columns=["Metric", "Value"])
+            st.dataframe(performance_df, use_container_width=True)
+        else:
+            st.write("No model performance data available.")
+    
+    with tab4:
+        if subgroup:
+            subgroup_df = pd.DataFrame(subgroup).T.reset_index()
+            subgroup_df.columns = ["Group"] + list(subgroup_df.columns[1:])
+            st.dataframe(subgroup_df, use_container_width=True)
+        else:
+            st.write("No subgroup performance data available.")
+    
+    with tab5:
+        if dataset_bias:
+            for attr, details in dataset_bias.items():
+                st.subheader(f"{attr}")
+                distribution = details.get("distribution", {})
+                if distribution:
+                    dist_df = pd.DataFrame(list(distribution.items()), columns=["Category", "Proportion"])
+                    st.dataframe(dist_df, use_container_width=True)
+                chi_p = details.get("chi_square_p_value")
+                if chi_p is not None:
+                    st.write(f"Chi-square p-value: {chi_p}")
+        else:
+            st.write("No dataset bias data available.")
+    
+    with tab6:
+        if top_features:
+            features_df = pd.DataFrame(top_features)
+            st.dataframe(features_df, use_container_width=True)
+        else:
+            st.write("No root cause analysis data available.")
+    
+    with tab7:
+        mitigation = report.get("mitigation_plan", {})
+        if mitigation:
+            # Flatten mitigation plan into tables
+            if "recommended_actions" in mitigation:
+                actions_df = pd.DataFrame(mitigation["recommended_actions"], columns=["Action"])
+                st.dataframe(actions_df, use_container_width=True)
+            
+            if "detailed_recommendations" in mitigation:
+                detailed = mitigation["detailed_recommendations"]
+                for category, recs in detailed.items():
+                    st.subheader(category)
+                    if recs:
+                        recs_df = pd.DataFrame(recs)
+                        st.dataframe(recs_df, use_container_width=True)
+            
+            if "priority_actions" in mitigation:
+                priority_df = pd.DataFrame(mitigation["priority_actions"], columns=["Priority Action"])
+                st.dataframe(priority_df, use_container_width=True)
+        else:
+            st.write("No mitigation plan data available.")
+    
+    with tab8:
+        other_data = {
+            "target": report.get("target"),
+            "protected_attributes": ", ".join(report.get("protected_attributes", [])),
+            "task_type": report.get("task_type"),
+            "detected_biases": ", ".join(report.get("detected_biases", [])),
+            "bias_summary": report.get("bias_summary", ""),
+            "bias_explanations": "; ".join(report.get("bias_explanations", [])),
+        }
         
-        subgroups = list(report["subgroup_performance"].keys())
-        accuracies = [report["subgroup_performance"][sg].get("accuracy", 0) * 100 for sg in subgroups]
-        precisions = [report["subgroup_performance"][sg].get("precision", 0) * 100 for sg in subgroups]
-        recalls = [report["subgroup_performance"][sg].get("recall", 0) * 100 for sg in subgroups]
+        # Implementation details if available
+        impl_plan = report.get("implementation_plan", {})
+        if impl_plan:
+            other_data.update({
+                "implementation_timeline": "; ".join(impl_plan.get("timeline", [])),
+                "resources_needed": "; ".join(impl_plan.get("resources_needed", [])),
+                "success_metrics": "; ".join(impl_plan.get("success_metrics", [])),
+            })
         
-        fig = go.Figure()
-        
-        fig.add_trace(go.Bar(
-            name='Accuracy',
-            x=subgroups,
-            y=accuracies,
-            marker_color='#3b82f6'
-        ))
-        
-        fig.add_trace(go.Bar(
-            name='Precision',
-            x=subgroups,
-            y=precisions,
-            marker_color='#10b981'
-        ))
-        
-        fig.add_trace(go.Bar(
-            name='Recall',
-            x=subgroups,
-            y=recalls,
-            marker_color='#f59e0b'
-        ))
-        
-        fig.update_layout(
-            title="Model Performance by Demographic Group",
-            xaxis_title="Demographic Groups",
-            yaxis_title="Performance (%)",
-            barmode='group',
-            height=400
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Dataset Distribution
-    if "dataset_bias" in report and report["dataset_bias"]:
-        st.markdown("### Dataset Demographic Distribution")
-        
-        for attr, data in report["dataset_bias"].items():
-            if attr == "intersectional":
-                continue
-                
-            if "distribution" in data and data["distribution"]:
-                groups = list(data["distribution"].keys())
-                percentages = [data["distribution"][g] * 100 for g in groups]
-                
-                fig = px.pie(
-                    values=percentages,
-                    names=groups,
-                    title=f"Distribution of {attr.title()}",
-                    color_discrete_sequence=px.colors.qualitative.Set3
-                )
-                
-                fig.update_traces(textposition='inside', textinfo='percent+label')
-                fig.update_layout(height=400)
-                
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # Add chi-square significance if available
-                if "chi_square_p_value" in data:
-                    p_value = data["chi_square_p_value"]
-                    significance = "Significant" if p_value < 0.05 else "Not Significant"
-                    st.write(f"**Chi-square Test:** p-value = {p_value:.6f} ({significance})")
-    
-    # Fairness Metrics Comparison
-    st.markdown("### Fairness Metrics Overview")
-    
-    fairness_metrics = report["fairness_metrics"]
-    metrics_names = ["Demographic Parity", "Equalized Odds"]
-    metrics_values = [
-        fairness_metrics.get("demographic_parity_difference", 0),
-        fairness_metrics.get("equalized_odds_difference", 0)
-    ]
-    
-    # Create threshold indicators
-    thresholds = [0.1, 0.05]  # Industry standard thresholds
-    
-    fig = go.Figure()
-    
-    fig.add_trace(go.Bar(
-        name='Current Value',
-        x=metrics_names,
-        y=metrics_values,
-        marker_color=['#3b82f6', '#10b981']
-    ))
-    
-    fig.add_trace(go.Scatter(
-        name='Threshold',
-        x=metrics_names,
-        y=thresholds,
-        mode='lines+markers',
-        line=dict(color='red', dash='dash'),
-        marker=dict(color='red', size=8)
-    ))
-    
-    fig.update_layout(
-        title="Fairness Metrics vs Industry Thresholds",
-        xaxis_title="Fairness Metrics",
-        yaxis_title="Value",
-        height=400,
-        annotations=[
-            dict(x=xi, yi=thresholds[i] + 0.01, text=f"Threshold: {thresholds[i]}", 
-                 showarrow=False, font=dict(color='red', size=10))
-            for i, xi in enumerate(metrics_names)
-        ]
+        other_df = pd.DataFrame(list(other_data.items()), columns=["Field", "Value"])
+        st.dataframe(other_df, use_container_width=True)
+
+st.markdown("### Upload your dataset for bias detection")
+uploaded_file = st.file_uploader(
+    "CSV file",
+    type=["csv"],
+    help="Upload a CSV dataset to run bias analysis."
+)
+
+if uploaded_file is not None:
+    try:
+        temp_path = os.path.join(os.path.dirname(__file__), "temp_uploaded_dataset.csv")
+        df_uploaded = pd.read_csv(uploaded_file)
+
+        if df_uploaded.empty:
+            st.error("Uploaded dataset is empty.")
+        else:
+            df_uploaded.to_csv(temp_path, index=False)
+            report = BiasDebugger(temp_path).run()
+            st.success("Analysis complete")
+            st.session_state.current_report = report
+            display_industry_report(report)
+    except Exception as e:
+        st.error("Analysis failed. See details below.")
+        st.exception(e)
+elif st.session_state.current_report is not None:
+    st.info("Showing the last uploaded dataset result.")
+    display_industry_report(st.session_state.current_report)
+else:
+    st.markdown(
+        """
+        <div class="deep-box">
+            <h2 style="margin-bottom:0.6rem;">Welcome to the Unbiased AI Debugger</h2>
+            <p>Upload your CSV dataset and get a polished bias analysis summary with deep blue analytics cards and clear remediation guidance.</p>
+            <ul style="margin-top:1rem; color:#c8d5ff;">
+                <li>Detect dataset and model fairness issues</li>
+                <li>Measure bias severity across protected groups</li>
+                <li>See root causes and mitigation suggestions</li>
+            </ul>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
-    
-    st.plotly_chart(fig, use_container_width=True)
