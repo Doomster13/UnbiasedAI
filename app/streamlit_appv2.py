@@ -421,7 +421,7 @@ def display_industry_report(report):
         if st.button("Clear Analysis", help="Clear current analysis and start fresh"):
             st.session_state.analysis_complete = False
             st.session_state.current_report = None
-            st.rerun()
+            st.experimental_rerun()
 
 def create_bias_visualizations(report):
     """Create interactive visualizations for bias analysis"""
