@@ -9,203 +9,56 @@ import numpy as np
 from datetime import datetime
 import json
 
+# Configure page
 st.set_page_config(
-    page_title="Unbiased AI Debugger",
-    page_icon="⬡",
+    page_title="Unbiased AI Debugger - Enterprise Edition",
+    page_icon="🔍",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
+# Custom CSS for professional styling
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
-
-/* ── Reset & Base ── */
-*, *::before, *::after { box-sizing: border-box; }
-
-@keyframes bgMove {
-    0% { background-position: 0% 0%; }
-    100% { background-position: 100% 100%; }
-}
-
-html, body, [data-testid="stAppViewContainer"] {
-    background: radial-gradient(circle at 15% 50%, rgba(124, 111, 247, 0.08), transparent 25%),
-                radial-gradient(circle at 85% 30%, rgba(167, 139, 250, 0.08), transparent 25%),
-                #09090f !important;
-    background-attachment: fixed !important;
-    color: #e8e6f0 !important;
-    font-family: 'DM Sans', sans-serif !important;
-}
-
-[data-testid="stSidebar"] {
-    background: rgba(15, 15, 26, 0.6) !important;
-    backdrop-filter: blur(16px) !important;
-    border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
-}
-
-[data-testid="stSidebar"] * {
-    color: #a0a0c0 !important;
-    font-family: 'DM Sans', sans-serif !important;
-}
-
-/* ── Typography ── */
-h1, h2, h3, h4, h5, h6 {
-    font-family: 'Syne', sans-serif !important;
-    font-weight: 700 !important;
-    color: #ffffff !important;
-    margin: 0 !important;
-}
-
-h1 { font-size: 2.5rem !important; line-height: 1.2 !important; }
-h2 { font-size: 2rem !important; line-height: 1.3 !important; }
-h3 { font-size: 1.5rem !important; line-height: 1.4 !important; }
-
-p, span, div {
-    font-family: 'DM Sans', sans-serif !important;
-    color: #e8e6f0 !important;
-}
-
-/* ── Components ── */
-[data-testid="stMarkdownContainer"] > p {
-    margin-bottom: 1rem !important;
-    line-height: 1.6 !important;
-}
-
-[data-testid="stFileUploader"] {
-    background: rgba(255, 255, 255, 0.03) !important;
-    border: 2px dashed rgba(124, 111, 247, 0.4) !important;
-    border-radius: 16px !important;
-    padding: 2rem !important;
-    transition: all 0.3s ease !important;
-}
-
-[data-testid="stFileUploader"]:hover {
-    background: rgba(124, 111, 247, 0.08) !important;
-    border-color: rgba(124, 111, 247, 0.6) !important;
-}
-
-[data-testid="stButton"] > button {
-    background: linear-gradient(135deg, #7c6ff6 0%, #a78bfa 100%) !important;
-    border: none !important;
-    border-radius: 12px !important;
-    color: white !important;
-    font-weight: 600 !important;
-    padding: 0.75rem 1.5rem !important;
-    transition: all 0.3s ease !important;
-    font-family: 'DM Sans', sans-serif !important;
-}
-
-[data-testid="stButton"] > button:hover {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 8px 25px rgba(124, 111, 247, 0.3) !important;
-}
-
-/* ── Metrics & Cards ── */
-[data-testid="stMetric"] {
-    background: rgba(255, 255, 255, 0.04) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    border-radius: 12px !important;
-    padding: 1rem !important;
-    backdrop-filter: blur(8px) !important;
-}
-
-[data-testid="stMetric"] > div > div:nth-child(1) {
-    color: #a0a0c0 !important;
-    font-size: 0.875rem !important;
-    font-weight: 500 !important;
-}
-
-[data-testid="stMetric"] > div > div:nth-child(2) {
-    color: #ffffff !important;
-    font-size: 1.5rem !important;
-    font-weight: 700 !important;
-}
-
-/* ── Progress Bar ── */
-[data-testid="stProgress"] > div > div > div > div {
-    background: linear-gradient(90deg, #7c6ff6, #a78bfa) !important;
-}
-
-/* ── Expander ── */
-[data-testid="stExpander"] > div > div > div > div {
-    background: rgba(255, 255, 255, 0.03) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    border-radius: 12px !important;
-}
-
-/* ── Dataframe ── */
-[data-testid="stDataFrame"] > div > div > div > div {
-    background: rgba(255, 255, 255, 0.02) !important;
-    border-radius: 8px !important;
-}
-
-/* ── Tabs ── */
-[data-testid="stTabs"] > div > div > div > div {
-    background: rgba(255, 255, 255, 0.03) !important;
-    border-radius: 12px 12px 0 0 !important;
-}
-
-/* ── Selectbox & Slider ── */
-[data-testid="stSelectbox"] > div > div,
-[data-testid="stSlider"] > div > div {
-    background: rgba(255, 255, 255, 0.03) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    border-radius: 8px !important;
-}
-
-/* ── Error & Success Messages ── */
-[data-testid="stException"],
-[data-testid="stAlert"] {
-    background: rgba(239, 68, 68, 0.1) !important;
-    border: 1px solid rgba(239, 68, 68, 0.2) !important;
-    border-radius: 8px !important;
-    color: #fca5a5 !important;
-}
-
-[data-testid="stSuccess"] {
-    background: rgba(34, 197, 94, 0.1) !important;
-    border: 1px solid rgba(34, 197, 94, 0.2) !important;
-    border-radius: 8px !important;
-    color: #86efac !important;
-}
-
-/* ── Custom Classes ── */
-.severity-high {
-    background-color: rgba(239, 68, 68, 0.1) !important;
-    padding: 1rem !important;
-    border-radius: 0.5rem !important;
-    border-left: 4px solid #ef4444 !important;
-}
-
-.severity-medium {
-    background-color: rgba(245, 158, 11, 0.1) !important;
-    padding: 1rem !important;
-    border-radius: 0.5rem !important;
-    border-left: 4px solid #f59e0b !important;
-}
-
-.severity-low {
-    background-color: rgba(34, 197, 94, 0.1) !important;
-    padding: 1rem !important;
-    border-radius: 0.5rem !important;
-    border-left: 4px solid #22c55e !important;
-}
-
-.metric-card {
-    background-color: rgba(255, 255, 255, 0.04) !important;
-    padding: 1.5rem !important;
-    border-radius: 0.5rem !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    margin: 0.5rem 0 !important;
-}
-
-.insight-box {
-    background-color: rgba(59, 130, 246, 0.1) !important;
-    padding: 1rem !important;
-    border-radius: 0.5rem !important;
-    border-left: 4px solid #3b82f6 !important;
-    margin: 1rem 0 !important;
-}
+    .main-header {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #1f2937;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .severity-high {
+        background-color: #fee2e2;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        border-left: 4px solid #dc2626;
+    }
+    .severity-medium {
+        background-color: #fef3c7;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        border-left: 4px solid #f59e0b;
+    }
+    .severity-low {
+        background-color: #dcfce7;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        border-left: 4px solid #16a34a;
+    }
+    .metric-card {
+        background-color: #f8fafc;
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        border: 1px solid #e2e8f0;
+        margin: 0.5rem 0;
+    }
+    .insight-box {
+        background-color: #eff6ff;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        border-left: 4px solid #3b82f6;
+        margin: 1rem 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -235,8 +88,8 @@ except Exception as e:
     st.stop()
 
 # Main header
-st.markdown('<h1 style="text-align: center; font-size: 2.5rem; font-weight: 700; color: #ffffff; margin-bottom: 1rem;">Unbiased AI Debugger</h1>', unsafe_allow_html=True)
-st.markdown('<p style="text-align: center; color: #a0a0c0; margin-bottom: 2rem;">Enterprise-grade bias detection and mitigation platform</p>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header">Unbiased AI Debugger</h1>', unsafe_allow_html=True)
+st.markdown('<p style="text-align: center; color: #6b7280; margin-bottom: 2rem;">Enterprise-grade bias detection and mitigation platform</p>', unsafe_allow_html=True)
 
 # File upload section
 col1, col2, col3 = st.columns([1, 2, 1])
@@ -248,6 +101,115 @@ with col2:
         type=["csv"],
         help="Supported formats: CSV. The system will automatically detect target columns and protected attributes."
     )
+
+if uploaded_file is not None:
+    # Progress tracking
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    try:
+        # Step 1: Load and validate data
+        status_text.text("Loading and validating dataset...")
+        progress_bar.progress(10)
+        
+        temp_path = "temp_uploaded_dataset.csv"
+        df_uploaded = pd.read_csv(uploaded_file)
+        
+        # Basic data validation
+        if df_uploaded.empty:
+            st.error("The uploaded dataset is empty. Please check your file.")
+            st.stop()
+            
+        if len(df_uploaded.columns) < 2:
+            st.error("Dataset must have at least 2 columns (features + target).")
+            st.stop()
+        
+        df_uploaded.to_csv(temp_path, index=False)
+        
+        # Step 2: Show data preview
+        status_text.text("Analyzing dataset structure...")
+        progress_bar.progress(25)
+        
+        with st.expander("Dataset Preview", expanded=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write(f"**Shape:** {df_uploaded.shape[0]} rows, {df_uploaded.shape[1]} columns")
+                st.write(f"**Memory usage:** {df_uploaded.memory_usage(deep=True).sum() / 1024**2:.1f} MB")
+            with col2:
+                st.write(f"**Missing values:** {df_uploaded.isnull().sum().sum()}")
+                st.write(f"**Duplicate rows:** {df_uploaded.duplicated().sum()}")
+            
+            st.dataframe(df_uploaded.head(), use_container_width=True)
+        
+        # Step 3: Run bias analysis
+        status_text.text("Running comprehensive bias analysis...")
+        progress_bar.progress(40)
+        
+        debugger = BiasDebugger(temp_path)
+        
+        status_text.text("Generating insights and recommendations...")
+        progress_bar.progress(60)
+        
+        report = debugger.run()
+        
+        status_text.text("Analysis complete!")
+        progress_bar.progress(100)
+        
+        # Store in session state
+        st.session_state.analysis_complete = True
+        st.session_state.current_report = report
+        
+        # Clear status
+        status_text.empty()
+        progress_bar.empty()
+        
+        # Display comprehensive report
+        display_industry_report(report)
+        
+    except Exception as e:
+        st.error(f"Analysis failed: {str(e)}")
+        st.exception(e)
+        
+elif st.session_state.analysis_complete and st.session_state.current_report:
+    # Display previous analysis if available
+    st.info("Showing previous analysis results. Upload a new dataset to run a fresh analysis.")
+    display_industry_report(st.session_state.current_report)
+
+else:
+    # Welcome screen
+    st.markdown("""
+    ## Welcome to Unbiased AI Debugger
+    
+    This enterprise-grade platform helps you:
+    
+    **Detect Bias** - Automatically identify various types of bias in your datasets
+    **Measure Impact** - Quantify bias severity with industry-standard metrics
+    **Get Explanations** - Understand why bias occurs and which groups are affected
+    **Mitigate Issues** - Receive actionable recommendations to reduce bias
+    **Monitor Progress** - Track improvements over time
+    
+    ### How it works:
+    1. **Upload** your CSV dataset
+    2. **Auto-detect** target columns and protected attributes
+    3. **Analyze** bias using multiple fairness metrics
+    4. **Receive** comprehensive report with explanations and mitigation strategies
+    
+    ---
+    
+    ### Supported Bias Types:
+    - **Representation Bias** - Uneven distribution of demographic groups
+    - **Demographic Bias** - Unfair outcome rates between groups  
+    - **Model Performance Bias** - Different accuracy across demographic groups
+    - **Intersectional Bias** - Combined effects of multiple protected attributes
+    
+    ### Fairness Metrics:
+    - Demographic Parity Difference
+    - Equalized Odds Difference
+    - Subgroup Performance Analysis
+    - Statistical Significance Testing
+    
+    **Ready to get started? Upload your dataset above!**
+    """)
 
 def display_industry_report(report):
     """Display comprehensive industry-level bias analysis report"""
@@ -535,119 +497,10 @@ def create_bias_visualizations(report):
         yaxis_title="Value",
         height=400,
         annotations=[
-            dict(x=xi, y=thresholds[i] + 0.01, text=f"Threshold: {thresholds[i]}", 
-                 showarrow=False, font=dict(color='red', size=10), yshift=10)
+            dict(x=xi, yi=thresholds[i] + 0.01, text=f"Threshold: {thresholds[i]}", 
+                 showarrow=False, font=dict(color='red', size=10))
             for i, xi in enumerate(metrics_names)
         ]
     )
     
     st.plotly_chart(fig, use_container_width=True)
-
-if uploaded_file is not None:
-    # Progress tracking
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    
-    try:
-        # Step 1: Load and validate data
-        status_text.text("Loading and validating dataset...")
-        progress_bar.progress(10)
-        
-        temp_path = "temp_uploaded_dataset.csv"
-        df_uploaded = pd.read_csv(uploaded_file)
-        
-        # Basic data validation
-        if df_uploaded.empty:
-            st.error("The uploaded dataset is empty. Please check your file.")
-            st.stop()
-            
-        if len(df_uploaded.columns) < 2:
-            st.error("Dataset must have at least 2 columns (features + target).")
-            st.stop()
-        
-        df_uploaded.to_csv(temp_path, index=False)
-        
-        # Step 2: Show data preview
-        status_text.text("Analyzing dataset structure...")
-        progress_bar.progress(25)
-        
-        with st.expander("Dataset Preview", expanded=True):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.write(f"**Shape:** {df_uploaded.shape[0]} rows, {df_uploaded.shape[1]} columns")
-                st.write(f"**Memory usage:** {df_uploaded.memory_usage(deep=True).sum() / 1024**2:.1f} MB")
-            with col2:
-                st.write(f"**Missing values:** {df_uploaded.isnull().sum().sum()}")
-                st.write(f"**Duplicate rows:** {df_uploaded.duplicated().sum()}")
-            
-            st.dataframe(df_uploaded.head(), use_container_width=True)
-        
-        # Step 3: Run bias analysis
-        status_text.text("Running comprehensive bias analysis...")
-        progress_bar.progress(40)
-        
-        debugger = BiasDebugger(temp_path)
-        
-        status_text.text("Generating insights and recommendations...")
-        progress_bar.progress(60)
-        
-        report = debugger.run()
-        
-        status_text.text("Analysis complete!")
-        progress_bar.progress(100)
-        
-        # Store in session state
-        st.session_state.analysis_complete = True
-        st.session_state.current_report = report
-        
-        # Clear status
-        status_text.empty()
-        progress_bar.empty()
-        
-        # Display comprehensive report
-        display_industry_report(report)
-        
-    except Exception as e:
-        st.error(f"Analysis failed: {str(e)}")
-        st.exception(e)
-        
-elif st.session_state.analysis_complete and st.session_state.current_report:
-    # Display previous analysis if available
-    st.info("Showing previous analysis results. Upload a new dataset to run a fresh analysis.")
-    display_industry_report(st.session_state.current_report)
-
-else:
-    # Welcome screen
-    st.markdown("""
-    ## Welcome to Unbiased AI Debugger
-    
-    This enterprise-grade platform helps you:
-    
-    **Detect Bias** - Automatically identify various types of bias in your datasets
-    **Measure Impact** - Quantify bias severity with industry-standard metrics
-    **Get Explanations** - Understand why bias occurs and which groups are affected
-    **Mitigate Issues** - Receive actionable recommendations to reduce bias
-    **Monitor Progress** - Track improvements over time
-    
-    ### How it works:
-    1. **Upload** your CSV dataset
-    2. **Auto-detect** target columns and protected attributes
-    3. **Analyze** bias using multiple fairness metrics
-    4. **Receive** comprehensive report with explanations and mitigation strategies
-    
-    ---
-    
-    ### Supported Bias Types:
-    - **Representation Bias** - Uneven distribution of demographic groups
-    - **Demographic Bias** - Unfair outcome rates between groups  
-    - **Model Performance Bias** - Different accuracy across demographic groups
-    - **Intersectional Bias** - Combined effects of multiple protected attributes
-    
-    ### Fairness Metrics:
-    - Demographic Parity Difference
-    - Equalized Odds Difference
-    - Subgroup Performance Analysis
-    - Statistical Significance Testing
-    
-    **Ready to get started? Upload your dataset above!**
-    """)
